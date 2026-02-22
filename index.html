@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>奉納♡電子ビンタ道</title>
+    <style>
+        :root {
+            --sumi: #1a1a1a;
+            --washi: #fdfdfb;
+            --white: #ffffff;
+            --gray: #999999;
+            --shrine-red: #d3381c;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@800&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Shippori Mincho', serif;
+            background-color: var(--sumi);
+            color: var(--sumi);
+            overflow: hidden;
+            touch-action: none;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #game-viewport {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            overflow: hidden;
+            background-color: var(--washi);
+            background-image: url('https://www.transparenttextures.com/patterns/p6.png');
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .character-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .character-img {
+            max-width: 95%;
+            max-height: 80%;
+            object-fit: contain;
+            display: none;
+            filter: contrast(1.1) brightness(1.05);
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .stat-box {
+            background: var(--white);
+            border: 3px double var(--sumi);
+            padding: 8px 15px;
+            text-align: center;
+            pointer-events: auto;
+            min-width: 100px;
+            box-shadow: 5px 5px 0 rgba(0,0,0,0.1);
+        }
+
+        .stat-label { font-size: 0.75rem; color: var(--gray); display: block; margin-bottom: 2px; }
+        .stat-value { font-size: 1.2rem; font-weight: 800; letter-spacing: 1px; }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+            pointer-events: auto;
+        }
+
+        #hand-cursor {
+            position: absolute;
+            font-size: 80px;
+            pointer-events: none;
+            z-index: 200;
+            left: -200px;
+            filter: grayscale(1) contrast(2);
+            transition: transform 0.1s ease;
+        }
+
+        .shake {
+            animation: shakeAnim 0.1s ease-in-out infinite;
+        }
+
+        @keyframes shakeAnim {
+            0% { transform: translate(0,0); }
+            50% { transform: translate(-8px, 8px); }
+            100% { transform: translate(8px, -8px); }
+        }
+
+        .slap-effect {
+            animation: slapAnim 0.2s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+        }
+
+        @keyframes slapAnim {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.6) rotate(-15deg); }
+            100% { transform: scale(1.3) rotate(5deg); }
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--washi);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            text-align: center;
+        }
+
+        .overlay h1 {
+            font-size: 2.5rem;
+            letter-spacing: 0.5rem;
+            margin-bottom: 30px;
+            padding: 10px 40px;
+            border: 4px double var(--sumi);
+        }
+
+        button {
+            background: var(--sumi);
+            color: var(--white);
+            border: none;
+            padding: 15px 60px;
+            font-size: 1.4rem;
+            font-family: 'Shippori Mincho', serif;
+            font-weight: 800;
+            cursor: pointer;
+            letter-spacing: 4px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        button:active { transform: translateY(2px); }
+        button:disabled { background: var(--gray); cursor: wait; }
+
+        #timer-container {
+            position: absolute;
+            bottom: 40px;
+            width: 70%;
+            height: 8px;
+            background: #e0e0e0;
+            border: 1px solid var(--sumi);
+            z-index: 60;
+        }
+        #timer-fill {
+            width: 100%;
+            height: 100%;
+            background: var(--sumi);
+            transform-origin: left;
+        }
+
+        .moji-particle {
+            position: absolute;
+            pointer-events: none;
+            z-index: 300;
+            font-size: 48px;
+            font-weight: 900;
+            color: var(--sumi);
+            animation: mojiFly 0.8s ease-out forwards;
+        }
+
+        @keyframes mojiFly {
+            0% { transform: translate(0,0) scale(0.5); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(2) rotate(20deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <div class="stat-box">
+        <span class="stat-label">修行階位</span>
+        <span id="level-val" class="stat-value">壱</span>
+    </div>
+    <div class="stat-box">
+        <span class="stat-label">獲得した徳</span>
+        <span id="score-val" class="stat-value">0</span>
+    </div>
+    <div class="stat-box">
+        <span class="stat-label">残り魂</span>
+        <span id="life-val" class="stat-value">魂魂魂</span>
+    </div>
+</div>
+
+<div id="game-viewport">
+    <div class="character-container">
+        <img id="img-normal" class="character-img" src="ビンタ前.png" alt="Normal">
+        <img id="img-hit" class="character-img" src="ビンタ後.png" alt="Hit">
+    </div>
+    <div id="timer-container"><div id="timer-fill"></div></div>
+    <div id="hand-cursor">✋</div>
+    <canvas id="gameCanvas"></canvas>
+</div>
+
+<div id="start-screen" class="overlay">
+    <h1>奉納♡電子ビンタ道</h1>
+    <p style="margin-bottom: 40px; font-weight: 800;">墨の跡が消える前に<br>煩悩を打ち砕け</p>
+    <button id="start-btn" disabled>準備中...</button>
+</div>
+
+<div id="game-over-screen" class="overlay" style="display: none;">
+    <h1 style="color: var(--shrine-red); border-color: var(--shrine-red);">修行完了</h1>
+    <p id="result-text" style="margin-bottom: 40px; font-weight: 800; font-size: 1.2rem;"></p>
+    <button onclick="location.reload()">再度奉納する</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const hand = document.getElementById('hand-cursor');
+    const viewport = document.getElementById('game-viewport');
+    const imgNormal = document.getElementById('img-normal');
+    const imgHit = document.getElementById('img-hit');
+    const startBtn = document.getElementById('start-btn');
+    const timerFill = document.getElementById('timer-fill');
+
+    let state = {
+        active: false,
+        level: 1,
+        score: 0,
+        life: 3,
+        path: null,
+        isDrawing: false,
+        startTime: 0,
+        limit: 3000,
+        width: 0,
+        height: 0
+    };
+
+    let audioCtx = null;
+    const kanjiNum = ["零","壱","弐","参","肆","伍","陸","漆","捌","玖","拾"];
+
+    // 画像読み込み待機
+    let loadedCount = 0;
+    const totalImages = 2;
+    [imgNormal, imgHit].forEach(img => {
+        if (img.complete) imageLoaded();
+        else {
+            img.onload = imageLoaded;
+            img.onerror = () => { startBtn.innerText = "画像読み込み失敗"; };
+        }
+    });
+
+    function imageLoaded() {
+        loadedCount++;
+        if (loadedCount >= totalImages) {
+            startBtn.disabled = false;
+            startBtn.innerText = "儀式開始";
+            imgNormal.style.display = 'block';
+        }
+    }
+
+    function init() {
+        resize();
+        window.addEventListener('resize', resize);
+        startBtn.addEventListener('click', startGame);
+
+        const move = (e) => {
+            const p = getPos(e);
+            hand.style.left = (p.x - 40) + 'px';
+            hand.style.top = (p.y - 40) + 'px';
+            if (state.active) handleMove(p.x, p.y);
+        };
+        const down = (e) => {
+            if (!state.active) return;
+            const p = getPos(e);
+            if (state.path && Math.hypot(p.x - state.path.start.x, p.y - state.path.start.y) < 80) {
+                state.isDrawing = true;
+            }
+        };
+
+        window.addEventListener('mousemove', move);
+        canvas.addEventListener('mousedown', down);
+        window.addEventListener('touchmove', (e) => { e.preventDefault(); move(e); }, { passive: false });
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); down(e); }, { passive: false });
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function resize() {
+        state.width = viewport.clientWidth;
+        state.height = viewport.clientHeight;
+        canvas.width = state.width;
+        canvas.height = state.height;
+    }
+
+    function getPos(e) {
+        const r = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - r.left, y: clientY - r.top };
+    }
+
+    function startGame() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        document.getElementById('start-screen').style.display = 'none';
+        state.active = true;
+        playBGM();
+        nextStage();
+    }
+
+    function playBGM() {
+        const notes = [440, 493, 523, 587, 659];
+        let i = 0;
+        const tick = () => {
+            if (!state.active) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(notes[i % notes.length], audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+            i++;
+            setTimeout(tick, 600);
+        };
+        tick();
+    }
+
+    function playSlapSound() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        
+        const drum = audioCtx.createOscillator();
+        const dGain = audioCtx.createGain();
+        drum.frequency.setValueAtTime(60, audioCtx.currentTime);
+        dGain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        dGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        drum.connect(dGain); dGain.connect(audioCtx.destination);
+        drum.start(); drum.stop(audioCtx.currentTime + 0.4);
+    }
+
+    function nextStage() {
+        imgNormal.style.display = 'block';
+        imgHit.style.display = 'none';
+        state.isDrawing = false;
+        state.startTime = Date.now();
+        state.limit = Math.max(800, 3500 - state.level * 200);
+        
+        const m = 60;
+        const start = { 
+            x: Math.random() > 0.5 ? m : state.width - m, 
+            y: Math.random() * (state.height - 200) + 100 
+        };
+        const end = { x: state.width/2, y: state.height/2 + 50 };
+        const cp = { x: Math.random() * state.width, y: Math.random() * state.height };
+        state.path = { start, end, cp };
+    }
+
+    function gameLoop() {
+        if (state.active && state.path) {
+            const elapsed = Date.now() - state.startTime;
+            const ratio = elapsed / state.limit;
+            timerFill.style.transform = `scaleX(${Math.max(0, 1 - ratio)})`;
+            
+            if (ratio >= 1) fail();
+            else drawPath(ratio);
+        }
+        requestAnimationFrame(gameLoop);
+    }
+
+    function drawPath(ratio) {
+        ctx.clearRect(0, 0, state.width, state.height);
+        const p = state.path;
+        
+        // 分割描画による「スタートから消える」演出
+        const segments = 50;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        for (let i = 0; i < segments; i++) {
+            const tStart = i / segments;
+            const tEnd = (i + 1) / segments;
+            
+            // スタートからの進捗(ratio)と比較して、古い部分ほど透明にする
+            // ratioが0.5のとき、前半50%は透明度が0に近づく
+            let alpha = 1.0;
+            if (tStart < ratio) {
+                alpha = Math.max(0, 1 - (ratio - tStart) * 5); // 係数で消える速度を調整
+            }
+            
+            if (alpha <= 0) continue;
+
+            const pt1 = getBezierPoint(p, tStart);
+            const pt2 = getBezierPoint(p, tEnd);
+            
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(26, 26, 26, ${0.8 * alpha})`;
+            ctx.lineWidth = 60 * alpha;
+            ctx.moveTo(pt1.x, pt1.y);
+            ctx.lineTo(pt2.x, pt2.y);
+            ctx.stroke();
+        }
+
+        // 開始地点のガイド (消えかけの時に見えやすくする)
+        const startAlpha = Math.max(0, 1 - ratio * 2);
+        if (startAlpha > 0) {
+            ctx.beginPath();
+            ctx.arc(p.start.x, p.start.y, 40 * startAlpha, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(211, 56, 28, ${0.4 * startAlpha})`;
+            ctx.fill();
+        }
+
+        // 終点（ビンタ位置）のガイド
+        ctx.beginPath();
+        ctx.arc(p.end.x, p.end.y, 30, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(26, 26, 26, 0.1)`;
+        ctx.fill();
+    }
+
+    function getBezierPoint(p, t) {
+        const x = (1 - t) * (1 - t) * p.start.x + 2 * (1 - t) * t * p.cp.x + t * t * p.end.x;
+        const y = (1 - t) * (1 - t) * p.start.y + 2 * (1 - t) * t * p.cp.y + t * t * p.end.y;
+        return { x, y };
+    }
+
+    function handleMove(x, y) {
+        if (!state.isDrawing) return;
+        const d = Math.hypot(x - state.path.end.x, y - state.path.end.y);
+        if (d < 80) success(x, y);
+    }
+
+    function success(x, y) {
+        state.active = false;
+        playSlapSound();
+        imgNormal.style.display = 'none';
+        imgHit.style.display = 'block';
+        hand.innerText = "💥";
+        hand.classList.add('slap-effect');
+        viewport.classList.add('shake');
+
+        const kanji = ["喝", "祓", "滅", "浄"];
+        for(let i=0; i<12; i++) {
+            const div = document.createElement('div');
+            div.className = 'moji-particle';
+            div.innerText = kanji[Math.floor(Math.random()*kanji.length)];
+            div.style.left = x + 'px'; div.style.top = y + 'px';
+            const ang = (Math.PI*2 / 12) * i;
+            const dist = 150 + Math.random()*100;
+            div.style.setProperty('--tx', Math.cos(ang)*dist + 'px');
+            div.style.setProperty('--ty', Math.sin(ang)*dist + 'px');
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 800);
+        }
+
+        setTimeout(() => {
+            hand.innerText = "✋";
+            hand.classList.remove('slap-effect');
+            viewport.classList.remove('shake');
+            state.score += 100 * state.level;
+            state.level++;
+            state.active = true;
+            updateUI();
+            nextStage();
+        }, 600);
+    }
+
+    function fail() {
+        state.active = false;
+        state.life--;
+        updateUI();
+        if (state.life <= 0) {
+            document.getElementById('game-over-screen').style.display = 'flex';
+            document.getElementById('result-text').innerText = `到達階位：${getK(state.level)}\n積んだ徳：${state.score}`;
+        } else {
+            state.active = true;
+            nextStage();
+        }
+    }
+
+    function getK(n) { return n <= 10 ? kanjiNum[n] : n; }
+
+    function updateUI() {
+        document.getElementById('level-val').innerText = getK(state.level);
+        document.getElementById('score-val').innerText = state.score;
+        document.getElementById('life-val').innerText = "魂".repeat(state.life);
+    }
+
+    init();
+</script>
+</body>
+</html>
