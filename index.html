@@ -262,7 +262,6 @@
     let audioCtx = null;
     const kanjiNum = ["零","壱","弐","参","肆","伍","陸","漆","捌","玖","拾"];
 
-    // 画像読み込み待機
     let loadedCount = 0;
     const totalImages = 2;
     [imgNormal, imgHit].forEach(img => {
@@ -382,7 +381,8 @@
             x: Math.random() > 0.5 ? m : state.width - m, 
             y: Math.random() * (state.height - 200) + 100 
         };
-        const end = { x: state.width/2, y: state.height/2 + 50 };
+        // ビンタ位置を画面下部寄りに変更（height * 0.75 付近）
+        const end = { x: state.width / 2, y: state.height * 0.75 };
         const cp = { x: Math.random() * state.width, y: Math.random() * state.height };
         state.path = { start, end, cp };
     }
@@ -403,7 +403,6 @@
         ctx.clearRect(0, 0, state.width, state.height);
         const p = state.path;
         
-        // 分割描画による「スタートから消える」演出
         const segments = 50;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -412,11 +411,9 @@
             const tStart = i / segments;
             const tEnd = (i + 1) / segments;
             
-            // スタートからの進捗(ratio)と比較して、古い部分ほど透明にする
-            // ratioが0.5のとき、前半50%は透明度が0に近づく
             let alpha = 1.0;
             if (tStart < ratio) {
-                alpha = Math.max(0, 1 - (ratio - tStart) * 5); // 係数で消える速度を調整
+                alpha = Math.max(0, 1 - (ratio - tStart) * 5);
             }
             
             if (alpha <= 0) continue;
@@ -432,7 +429,6 @@
             ctx.stroke();
         }
 
-        // 開始地点のガイド (消えかけの時に見えやすくする)
         const startAlpha = Math.max(0, 1 - ratio * 2);
         if (startAlpha > 0) {
             ctx.beginPath();
@@ -441,7 +437,6 @@
             ctx.fill();
         }
 
-        // 終点（ビンタ位置）のガイド
         ctx.beginPath();
         ctx.arc(p.end.x, p.end.y, 30, 0, Math.PI*2);
         ctx.fillStyle = `rgba(26, 26, 26, 0.1)`;
